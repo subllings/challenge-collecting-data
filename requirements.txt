@@ -1,4 +1,10 @@
+# Web scraping tools
+selenium
 requests
 beautifulsoup4
+
+# Data processing
 pandas
+
+# Optional fallback or future use
 playwright>=1.42,<2.0

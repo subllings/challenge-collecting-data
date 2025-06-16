@@ -47,7 +47,7 @@ fi
 
 # === Launch the main script ===
 print_info "Launching scraper..."
-set PYTHONPATH=src
-python -m src.main || print_error "Execution failed."
+PYTHONPATH=src python -m src.main || print_error "Execution failed."
+
 
 print_success "Program executed successfully."

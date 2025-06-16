@@ -37,7 +37,15 @@ class ImmowebScraper:
                 logger.info(f"Fetching links (Playwright) from: {url}")
                 try:
                     page.goto(url)
-                    page.wait_for_selector("article.card--result", timeout=30000)
+
+                    # --- dump HTML pour debug ---
+                    html = page.content()
+                    with open("output/debug_links_page.html", "w", encoding="utf-8") as f:
+                        f.write(html)
+                    print("HTML snapshot saved to debug_page.html")
+                    # --- fin dump ---
+
+                    page.wait_for_selector("article.card", timeout=30000)
 
                     # Extraction claire via JS injecté
                     page_links = self._extract_property_urls_playwright(page)
@@ -61,10 +69,9 @@ class ImmowebScraper:
                 logger.info(f"Scraping details (Playwright) from: {url}")
                 try:
                     page.goto(url)
-
                     time.sleep(5)  # attente fixe pour debug
 
-                    html = page.content()
+                    html = page.content()  # il faut récupérer le contenu ici
 
                     print("=== Page HTML snapshot ===")
                     print(html[:1000])  # affiche un extrait du HTML
@@ -94,6 +101,7 @@ class ImmowebScraper:
                     logger.error(f"Failed to scrape (Playwright) {url}: {e}")
             browser.close()
         return self.data
+
 
     def _extract_property_urls_playwright(self, page) -> list[str]:
         """
