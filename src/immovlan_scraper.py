@@ -163,11 +163,12 @@ class ImmovlanScraper:
                     f.write(f"[{timestamp}] 🟢 [{i:02d}] {url}\n")
 
                 # Save page snapshot
+                """""
                 debug_path = f"output/debug_links_page_{page}_{self.run_id}.html"
                 with open(debug_path, "w", encoding="utf-8") as dbg:
                     dbg.write(self.driver.page_source)
                 logger.info(f"[INFO] Saved HTML snapshot to {debug_path}")
-
+                """
                 # ✅ Save partial CSV with only this page’s URLs
                 partial_csv_path = f"output/partial_urls_page_{page}_{self.run_id}.csv"
                 pd.DataFrame(page_data, columns=["page", "url"]).to_csv(partial_csv_path, index=False)
