@@ -1,0 +1,25 @@
+# === Unit testing & test mocking ===
+pytest==8.2.1                     # Main testing framework for Python
+pytest-mock==3.14.0               # Simplifies mocking with pytest
+coverage==7.5.1                   # Measure code coverage during testing
+pytest-cov==5.0.0                 # Pytest plugin for coverage integration
+
+# === Code quality & formatting ===
+flake8==7.0.0                     # Linter for code style (PEP8)
+black==24.4.2                     # Automatic code formatter
+isort==5.13.2                     # Sort import statements automatically
+mypy==1.10.0                      # Static type checker for function annotations
+pylint==3.1.0                     # Source code analyzer to enforce coding standards (optional)
+
+# === Typing stubs for third-party libraries ===
+types-requests==2.31.0.20240406          # Type hints for the 'requests' library
+types-beautifulsoup4==4.12.0.20240229    # Type hints for 'bs4' / BeautifulSoup
+
+# === Docstring / Style checkers (optional) ===
+pydocstyle==6.3.0                 # Enforce docstring conventions (PEP257)
+flake8-docstrings==1.7.0         # flake8 plugin to validate docstrings
+
+# === Documentation generation ===
+pdoc==15.0.4                      # Generate HTML documentation from Python docstrings
+
+

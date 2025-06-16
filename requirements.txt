@@ -1,0 +1,4 @@
+requests
+beautifulsoup4
+pandas
+playwright>=1.42,<2.0
