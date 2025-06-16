@@ -1,12 +1,12 @@
-#from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from bs4 import BeautifulSoup
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from urllib.parse import urljoin
+from selenium.common.exceptions import TimeoutException
 from seleniumwire import webdriver
+from bs4 import BeautifulSoup
+from datetime import datetime
+from urllib.parse import urljoin
 
 import pandas as pd
 import time
@@ -18,18 +18,18 @@ import json
 logger = logging.getLogger(__name__)
 
 class ImmovlanScraper:
-    def __init__(self, base_url: str, max_pages: int = 10, delay_min: float = 1.0, delay_max: float = 2.5):
+    def __init__(self, base_url: str, max_pages: int = 10, delay_min: float = 1.0, delay_max: float = 2.5, run_id: str = None):
         self.base_url = base_url
         self.max_pages = max_pages
         self.delay_min = delay_min
         self.delay_max = delay_max
+        self.run_id = run_id or datetime.now().strftime("%Y%m%d_%H%M")
         self.driver = self._init_driver()
         self.property_urls = []
         self.data = []
 
     def _init_driver(self):
         options = Options()
-
         options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-gpu")
@@ -44,122 +44,158 @@ class ImmovlanScraper:
 
         return webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
 
-
-
-
-
     def handle_cookie_banner(self):
         """
-        Attempt to dismiss the cookie consent banner by clicking the 'Agree and close' button.
+        Try to dismiss cookie consent popup if present.
         """
         try:
-            self.driver.switch_to.default_content()  # Ensure we're in the main context
-
-            # Try clicking the cookie banner button by ID
-            WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.ID, "didomi-notice-agree-button"))
-            ).click()
-
-            logger.info("✅ Cookie consent dismissed successfully.")
+            accept_button = WebDriverWait(self.driver, 5).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "button, [id*='cookie'], [class*='cookie']"))
+            )
+            accept_button.click()
+            logger.info("✅ Cookie banner dismissed.")
+        except TimeoutException:
+            logger.info("ℹ️ No cookie banner found.")
         except Exception as e:
-            logger.warning(f"⚠️ Cookie banner not found or could not be dismissed: {e}")
+            logger.warning(f"⚠️ Unexpected error while handling cookie banner: {e}")
 
 
     def get_all_listing_urls(self):
-        output_path = "output/immovlan_urls_by_page.log"
+        output_path = f"output/immovlan_urls_by_page_{self.run_id}.log"
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        empty_pages_in_a_row = 0
+        max_empty_pages = 10
 
         with open(output_path, "w", encoding="utf-8") as f:
             for page in range(1, self.max_pages + 1):
                 full_url = f"{self.base_url}&page={page}"
-                logger.info(f"➡️ Visiting page {page}: {full_url}")
-                f.write(f"\n=== Page {page} ===\n➡️ Visiting: {full_url}\n")
-               
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                logger.info(f">>> Visiting page {page}: {full_url}")
+                f.write(f"\n[{timestamp}] === Page {page} ===\n>>> Visiting: {full_url}\n")
 
                 self.driver.get(full_url)
                 self.handle_cookie_banner()
-                WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_all_elements_located((By.XPATH, "//a[contains(@href, '/en/detail/')]"))
-                )                 
 
-                # Scroll jusqu'en bas de la page pour forcer le chargement
+                try:
+                    WebDriverWait(self.driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, "a[href*='/en/detail/']"))
+                    )
+                except TimeoutException:
+                    msg = f"[WARNING] Timeout on page {page}. Page structure not recognized. Skipping."
+                    logger.warning(msg)
+                    f.write(f"[{timestamp}] {msg}\n")
+                    empty_pages_in_a_row += 1
+                    if empty_pages_in_a_row >= max_empty_pages:
+                        stop_msg = (
+                            f"\n[{timestamp}] 🛑 Script stopped after {max_empty_pages} consecutive pages "
+                            f"with no valid listings (last at page {page})."
+                        )
+                        logger.warning(stop_msg)
+                        f.write(stop_msg + "\n")
+                        break
+                    continue
+
+                # Scroll to force lazy loading
                 last_height = self.driver.execute_script("return document.body.scrollHeight")
                 while True:
                     self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                    time.sleep(2)
+                    time.sleep(random.uniform(1.5, 2.5))
                     new_height = self.driver.execute_script("return document.body.scrollHeight")
                     if new_height == last_height:
                         break
                     last_height = new_height
-                time.sleep(random.uniform(1.5, 2.5))
 
-                # Extraire les liens visibles dans la page
-                link_elements = self.driver.find_elements(By.XPATH, "//a[contains(@href, '/en/detail/')]")
-                property_links = set()
+                # Extract links from the DOM
+                links_dom = self.driver.find_elements(By.XPATH, "//a[contains(@href, '/en/detail/')]")
+                dom_links = {
+                    elem.get_attribute("href").split("?")[0].strip()
+                    for elem in links_dom
+                    if elem.get_attribute("href") and "/en/detail/" in elem.get_attribute("href")
+                }
 
-                for elem in link_elements:
-                    try:
-                        href = elem.get_attribute("href")
-                        if href and "/en/detail/" in href:
-                            property_links.add(href.split("?")[0].strip())  # nettoyage basique
-                    except Exception:
-                        continue
+                # Extract links from XHR JSON
+                xhr_links = set()
+                for req in self.driver.requests:
+                    if req.response and "application/json" in req.headers.get("accept", ""):
+                        try:
+                            body = req.response.body.decode("utf-8", errors="ignore")
+                            data = json.loads(body)
+                            for container in ['items', 'list', 'results']:
+                                if container in data:
+                                    for item in data[container]:
+                                        url = item.get("detailUrl") or item.get("url")
+                                        if url and url.startswith("http"):
+                                            xhr_links.add(url.split("?")[0])
+                        except Exception:
+                            continue
 
-                if not property_links:
-                    msg = f"⚠️ No property links found on page {page}."
+                page_links = sorted(dom_links.union(xhr_links))
+
+                if not page_links:
+                    msg = f"[WARNING] No property links found on page {page}."
                     logger.warning(msg)
-                    f.write(msg + "\n")
+                    f.write(f"[{timestamp}] {msg}\n")
+                    empty_pages_in_a_row += 1
+                    if empty_pages_in_a_row >= max_empty_pages:
+                        stop_msg = (
+                            f"\n[{timestamp}] 🛑 Script stopped after {max_empty_pages} consecutive empty pages "
+                            f"(last at page {page})."
+                        )
+                        logger.warning(stop_msg)
+                        f.write(stop_msg + "\n")
+                        break
                     continue
+                else:
+                    empty_pages_in_a_row = 0
 
-                logger.info(f"🔗 Found {len(property_links)} property links on page {page}")
-                f.write(f"🔗 Found {len(property_links)} property links on page {page}\n")
+                logger.info(f"[INFO] Found {len(page_links)} property links on page {page}")
+                f.write(f"[{timestamp}] [INFO] Found {len(page_links)} property links on page {page}\n")
 
-                for i, full_link in enumerate(sorted(property_links), start=1):
-                    if full_link not in self.property_urls:
-                      self.property_urls.append(full_link)
-                    logger.info(f"[{i:02d}] ✅ URL found: {full_link}")
-                    print(f"[{i:02d}] ✅ URL found: {full_link}")
-                    f.write(f"[{i:02d}] {full_link}\n")
+                page_data = []  # store URLs from this page only
 
-                # Dump HTML snapshot
-                html = self.driver.page_source
-                debug_path = f"output/debug_links_page_{page}.html"
+                for i, url in enumerate(page_links, 1):
+                    entry = {"page": page, "url": url}
+                    if entry not in self.property_urls:
+                        self.property_urls.append(entry)
+                    page_data.append(entry)
+                    logger.info(f"🟢 [{i:02d}] URL found: {url}")
+                    f.write(f"[{timestamp}] 🟢 [{i:02d}] {url}\n")
+
+                # Save page snapshot
+                debug_path = f"output/debug_links_page_{page}_{self.run_id}.html"
                 with open(debug_path, "w", encoding="utf-8") as dbg:
-                    dbg.write(html)
-                logger.info(f"📝 Saved HTML snapshot to {debug_path}")
+                    dbg.write(self.driver.page_source)
+                logger.info(f"[INFO] Saved HTML snapshot to {debug_path}")
 
-        # Analyse les requêtes XHR pour extraire des données utiles
-        for request in self.driver.requests:
-            if request.response and "application/json" in request.headers.get("accept", ""):
-                try:
-                    body = request.response.body.decode('utf-8', errors='ignore')
-                    data = json.loads(body)
+                # ✅ Save partial CSV with only this page’s URLs
+                partial_csv_path = f"output/partial_urls_page_{page}_{self.run_id}.csv"
+                pd.DataFrame(page_data, columns=["page", "url"]).to_csv(partial_csv_path, index=False)
+                logger.info(f"[INFO] ✅ Partial CSV saved: {partial_csv_path}")
 
-                    # Parcours des propriétés si elles sont dans une clé 'items', 'list', ou 'results'
-                    for container in ['items', 'list', 'results']:
-                        if container in data:
-                            for item in data[container]:
-                                url = item.get("detailUrl") or item.get("url")
-                                if url and url.startswith("http"):
-                                    clean_url = url.split("?")[0]
-                                    if clean_url not in self.property_urls:
-                                        self.property_urls.append(clean_url)
-                                        logger.info(f"📥 URL from JSON: {clean_url}")
-                except Exception as e:
-                    logger.debug(f"[XHR] Ignored non-parsable JSON: {request.url} ({str(e)})")
+        # ✅ Final save of all collected URLs
+        self.to_csv(filepath=f"output/immovlan_urls_{self.run_id}.csv")
+
+        # Optional: Save summary stats
+        summary_path = f"output/stats_{self.run_id}.txt"
+        with open(summary_path, "w") as stats:
+            stats.write(f"Run ID         : {self.run_id}\n")
+            stats.write(f"Pages visited  : {page}\n")
+            stats.write(f"Total listings : {len(self.property_urls)}\n")
+            stats.write(f"Timestamp      : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        logger.info(f"📊 Stats saved to {summary_path}")
+
 
 
 
     def close(self):
         self.driver.quit()
 
-    def to_csv(self, filepath="output/immovlan_urls.csv"):
+    def to_csv(self, filepath: str):
         if not self.property_urls:
-            logger.warning("⚠️ No URLs to save.")
+            logger.warning("[WARNING] No URLs to save.")
             return
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        pd.DataFrame(self.property_urls, columns=["url"]).to_csv(filepath, index=False)
-        logger.info(f"✅ Saved {len(self.property_urls)} URLs to {filepath}")
-
-
-
+        df = pd.DataFrame(self.property_urls)
+        df.to_csv(filepath, index=False)
+        logger.info(f"💾 CSV saved with {len(df)} rows: {filepath}")
