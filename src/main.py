@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     base_url = "https://immovlan.be/en/real-estate?transactiontypes=for-sale,in-public-sale&propertytypes=house,apartment&municipals=brussels&noindex=1"
-    scraper = ImmovlanScraper(base_url=base_url, max_pages=2)
+    scraper = ImmovlanScraper(base_url=base_url, max_pages=1)
 
     try:
         urls = scraper.get_all_listing_urls()
