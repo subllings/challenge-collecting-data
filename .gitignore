@@ -65,9 +65,7 @@ Thumbs.db
 # === Pytest cache ===
 .cache/
 
-# === Data files saved or generated ===
-*.orig
-/data/
+
 
 # === Output files (JSON, CSV, etc.) ===
 # output/

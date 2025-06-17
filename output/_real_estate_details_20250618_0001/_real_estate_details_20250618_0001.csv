@@ -1,0 +1,11 @@
+town,page,url,property_type,price,address,postal_code,city,bedrooms,bedroom1_surface,bedroom2_surface,bathrooms,toilets,surface_livable,terrace,terrace_surface,terrace_orientation,floor,year_built,condition,kitchen_equipment,cellar,glazing_type,elevator,entry_phone,epc_score,epc_total,epc_valid_until
+aalst,1,https://immovlan.be/en/detail/apartment/for-sale/9300/aalst/rbt68791,Apartment,169 000 €,Geldhofstraat 2 2 9300 Aalst,2,Aalst,1,,,1,,69 m²,Yes,,,,1913,Normal,Super equipped,,Double glass,No,Yes,151 kWh/m²/year,,
+aalst,1,https://immovlan.be/en/detail/apartment/for-sale/9300/aalst/rbt69060,Apartment,339 000 €,Bauwensplein 3 A0.1 9300 Aalst,3,Aalst,2,,,1,1,108 m²,Yes,7 m²,,,,New,Super equipped,No,,No,,,,
+aalst,1,https://immovlan.be/en/detail/apartment/for-sale/9300/aalst/rbt71263,Apartment,290 000 €,Arendsveld 2 9300 Aalst,2,Aalst,4,,,4,5,216 m²,,,,,1930,To be renovated,,No,,No,,805 kWh/m²/year,,
+aalst,1,https://immovlan.be/en/detail/apartment/for-sale/9300/aalst/rbt71878,Apartment,265 000 €,Ouden Dendermondse Steenweg 144 21 9300 Aalst,144,Aalst,3,12 m²,12 m²,1,1,85 m²,Yes,3 m²,South,2,2019,Excellent,Super equipped,Yes,Double glass,Yes,Yes,,,05/05/2029
+aalst,1,https://immovlan.be/en/detail/apartment/for-sale/9300/aalst/rbt72006,Apartment,195 000 €,Raffelgemstraat 16 5 9300 Aalst,16,Aalst,2,,,1,1,72 m²,Yes,15 m²,,2,1967,Normal,,No,,Yes,,149 kWh/m²/year,,
+aalst,1,https://immovlan.be/en/detail/apartment/for-sale/9308/gijzegem/rbt69700,Apartment,259 000 €,Alverenbergbaan 1 02 9308 Gijzegem,1,Gijzegem,2,8 m²,15 m²,1,1,80 m²,Yes,30 m²,,0,,New,,No,Double glass,No,,,,
+aalst,1,https://immovlan.be/en/detail/master-house/for-sale/9300/aalst/rbt71653,Master,575 000 €,Bert Van Hoorickstraat 19 9300 Aalst,19,Aalst,,,,,,696 m²,,,,,,,,No,,,,,,
+aalst,1,https://immovlan.be/en/detail/mixed-building/for-sale/9300/aalst/rbt69056,Mixed,599 000 €,Esplanadeplein 12 9300 Aalst,12,Aalst,2,,,2,3,173 m²,Yes,,,,,Normal,,No,,No,,297 kWh/m²/year,,
+aalst,1,https://immovlan.be/en/detail/mixed-building/for-sale/9300/aalst/rbt71268,Mixed,290 000 €,Arendsveld 2 9300 Aalst,2,Aalst,4,,,4,5,216 m²,,,,,1930,To be renovated,,No,,No,,805 kWh/m²/year,,
+aalst,1,https://immovlan.be/en/detail/residence/for-sale/9300/aalst/rbt69055,Residence,339 000 €,Bauwensplein 3 A0.1 9300 Aalst,3,Aalst,2,,,1,1,108 m²,Yes,7 m²,,,,New,,No,,No,,,,

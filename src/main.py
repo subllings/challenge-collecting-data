@@ -35,6 +35,10 @@ def main():
 
     logger.info("🚀 Starting Immovlan scraper")
 
+    # ------------------------------------------------
+    # Read towns from CSV file and scrape each town
+    # ------------------------------------------------
+
     if read_towns_url:
       # Town url extration
       if not TOWNS_CSV_PATH.exists():
