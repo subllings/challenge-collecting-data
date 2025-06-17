@@ -40,7 +40,7 @@ def main():
         return
 
     towns = pd.read_csv(TOWNS_CSV_PATH)["immovlan_url_name"].dropna().unique().tolist()
-    logger.info(f"📍 Total towns to scrape: {len(towns)}")
+    logger.info(f"🏙️ Total towns to scrape: {len(towns)}")
 
     # Town url extration
     if read_towns_url:
@@ -65,13 +65,10 @@ def main():
 
     # Extract details real estate from consolidated URLs
     if extract_details_from_consolidated:
-        scraper_detail = ImmovlanDetailsScraper(
-            csv_file="output/consolidated_towns_urls_20250617_1524/consolidated_towns_urls_20250617_1524.csv",
-            output_dir="output",
-            limit=1
-        )
+        scraper_detail = ImmovlanDetailsScraper(output_dir="output", limit=1)
         scraper_detail.extract_all()
         scraper_detail.close()
+
         logger.info("✅ Details extracted from consolidated URLs.")
 
 

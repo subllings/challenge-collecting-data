@@ -1,3 +1,4 @@
+import glob
 import os
 import csv
 import time
@@ -8,12 +9,11 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from src.utils.logger import logger
 
-
 class ImmovlanDetailsScraper:
-    def __init__(self, csv_file: str, output_dir: str = "output", limit: int = -1):
-        self.csv_file = csv_file
+    def __init__(self, output_dir: str = "output", limit: int = -1):
         self.output_dir = output_dir
         self.limit = limit
+        self.csv_file = self._get_latest_consolidated_csv()
         self.driver = self._init_driver()
         self.output_file = self._generate_output_file_path()
 
@@ -33,10 +33,12 @@ class ImmovlanDetailsScraper:
         os.makedirs(dir_path, exist_ok=True)
         return os.path.join(dir_path, f"real_estate_details_{timestamp}.csv")
 
-    def close(self):
-        if hasattr(self, 'driver') and self.driver:
-            self.driver.quit()
-
+    def _get_latest_consolidated_csv(self):
+        pattern = os.path.join(self.output_dir, "consolidated_towns_urls_*/consolidated_towns_urls_*.csv")
+        files = glob.glob(pattern)
+        if not files:
+            raise FileNotFoundError("No consolidated CSV file found.")
+        return max(files, key=os.path.getmtime)
 
     def extract_all(self):
         logger.info(f"🔍 Reading from: {self.csv_file}")
@@ -62,7 +64,6 @@ class ImmovlanDetailsScraper:
                     time.sleep(2)
                     soup = BeautifulSoup(self.driver.page_source, "html.parser")
 
-                    # Extract values from structured layout
                     def get_label_value(label):
                         element = soup.find("h4", string=label)
                         if element and element.find_next_sibling("p"):
@@ -100,7 +101,6 @@ class ImmovlanDetailsScraper:
                         "epc_valid_until": get_label_value("Validity date EPC/PEB")
                     }
 
-                    # Extract postal_code and city from address
                     address_parts = details["address"].split() if details["address"] else []
                     if len(address_parts) >= 2:
                         try:
@@ -116,3 +116,5 @@ class ImmovlanDetailsScraper:
 
         logger.info(f"💾 Saved detailed data to: {self.output_file}")
 
+    def close(self):
+        self.driver.quit()
