@@ -18,15 +18,18 @@ import json
 logger = logging.getLogger(__name__)
 
 class ImmovlanScraper:
-    def __init__(self, base_url: str, max_pages: int = 10, delay_min: float = 1.0, delay_max: float = 2.5, run_id: str = None):
+    def __init__(self, base_url: str, town: str, max_pages: int = -1, delay_min: float = 1.0, delay_max: float = 2.5, run_id: str = None, output_dir: str = "output"):
         self.base_url = base_url
+        self.town = town
         self.max_pages = max_pages
         self.delay_min = delay_min
         self.delay_max = delay_max
         self.run_id = run_id or datetime.now().strftime("%Y%m%d_%H%M")
+        self.output_dir = output_dir
         self.driver = self._init_driver()
         self.property_urls = []
         self.data = []
+    
 
     def _init_driver(self):
         options = Options()
@@ -42,12 +45,38 @@ class ImmovlanScraper:
             'verify_ssl': False,
         }
 
-        return webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
+        driver = webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
+
+        # ✅ Interceptor défini AVANT tout appel à .get()
+        def interceptor(request):
+            blocked_domains = [
+                'doubleclick.net',
+                'googletagmanager.com',
+                'google-analytics.com',
+                'smartadserver.com',
+                'optimizely.com',
+                'facebook.net',
+                'adsafeprotected.com',
+                'pubmatic.com',
+                'adservice.google.com',
+                'adservice.google.be',
+                'cm.g.doubleclick.net',
+                'diff.smartadserver.com',
+                'pagead2.googlesyndication.com',
+                'securepubads.g.doubleclick.net',
+                'api-image.immovlan.be',
+                'xiti.com',
+                'privacy-center.com',
+                'accounts.google.com',
+            ]
+            if any(domain in request.url.lower() for domain in blocked_domains):
+                request.abort()
+
+        driver.request_interceptor = interceptor
+        return driver
+
 
     def handle_cookie_banner(self):
-        """
-        Try to dismiss cookie consent popup if present.
-        """
         try:
             accept_button = WebDriverWait(self.driver, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "button, [id*='cookie'], [class*='cookie']"))
@@ -59,10 +88,18 @@ class ImmovlanScraper:
         except Exception as e:
             logger.warning(f"⚠️ Unexpected error while handling cookie banner: {e}")
 
+    def scrape(self):
+        logger.info(f"🔎 Scraping town: {self.town}")
+        self.get_all_listing_urls(town_name=self.town)
 
-    def get_all_listing_urls(self):
-        output_path = f"output/immovlan_urls_by_page_{self.run_id}.log"
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    def get_all_listing_urls(self, town_name: str):
+        folder_name = f"{town_name}_{self.run_id}"
+
+        full_output_dir = os.path.join(self.output_dir, folder_name)
+        os.makedirs(full_output_dir, exist_ok=True)
+
+        filename_base = f"{town_name}_{self.run_id}"
+        output_log = os.path.join(full_output_dir, f"urls_by_page_{filename_base}.log")
 
         empty_pages_in_a_row = 0
         max_empty_pages = 10
@@ -70,15 +107,16 @@ class ImmovlanScraper:
         max_same_pages = 10
         last_page_links = []
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            for page in range(1, self.max_pages + 1):
+        with open(output_log, "w", encoding="utf-8") as f:
+            page = 1
+            while self.max_pages == -1 or page <= self.max_pages:
                 full_url = f"{self.base_url}&page={page}"
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 logger.info(f">>> Visiting page {page}: {full_url}")
                 f.write(f"\n[{timestamp}] === Page {page} ===\n>>> Visiting: {full_url}\n")
 
                 self.driver.get(full_url)
-                self.driver.requests.clear()  # ✅ Clear previous network traffic for this page
+                self.driver.requests.clear()
                 self.handle_cookie_banner()
 
                 try:
@@ -100,7 +138,6 @@ class ImmovlanScraper:
                         break
                     continue
 
-                # Scroll to force lazy loading
                 last_height = self.driver.execute_script("return document.body.scrollHeight")
                 while True:
                     self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -110,7 +147,6 @@ class ImmovlanScraper:
                         break
                     last_height = new_height
 
-                # Extract links from the DOM
                 links_dom = self.driver.find_elements(By.XPATH, "//a[contains(@href, '/en/detail/')]")
                 dom_links = {
                     elem.get_attribute("href").split("?")[0].strip()
@@ -118,7 +154,6 @@ class ImmovlanScraper:
                     if elem.get_attribute("href") and "/en/detail/" in elem.get_attribute("href")
                 }
 
-                # Extract links from XHR JSON
                 xhr_links = set()
                 for req in self.driver.requests:
                     if req.response and "application/json" in req.headers.get("accept", ""):
@@ -135,7 +170,6 @@ class ImmovlanScraper:
                             continue
 
                 page_links = sorted(dom_links.union(xhr_links))
-                #  Stop if current page returns exactly same links as the previous one
                 if page_links == last_page_links:
                     same_pages_in_a_row += 1
                     msg = f"[WARNING] Same links as previous page at page {page} ({same_pages_in_a_row} in a row)."
@@ -152,7 +186,7 @@ class ImmovlanScraper:
                 else:
                     same_pages_in_a_row = 0
 
-                last_page_links = page_links                
+                last_page_links = page_links
 
                 if not page_links:
                     msg = f"[WARNING] No property links found on page {page}."
@@ -174,8 +208,7 @@ class ImmovlanScraper:
                 logger.info(f"[INFO] Found {len(page_links)} property links on page {page}")
                 f.write(f"[{timestamp}] [INFO] Found {len(page_links)} property links on page {page}\n")
 
-                page_data = []  # store URLs from this page only
-
+                page_data = []
                 for i, url in enumerate(page_links, 1):
                     entry = {"page": page, "url": url}
                     if entry not in self.property_urls:
@@ -184,25 +217,22 @@ class ImmovlanScraper:
                     logger.info(f"🟢 [{i:02d}] URL found: {url}")
                     f.write(f"[{timestamp}] 🟢 [{i:02d}] {url}\n")
 
-                # ✅ Save partial CSV with only this page’s URLs
-                partial_csv_path = f"output/partial_urls_page_{page}_{self.run_id}.csv"
+                partial_csv_path = os.path.join(full_output_dir, f"partial_urls_page_{page}_{filename_base}.csv")
                 pd.DataFrame(page_data, columns=["page", "url"]).to_csv(partial_csv_path, index=False)
                 logger.info(f"[INFO] ✅ Partial CSV saved: {partial_csv_path}")
+              
+                page += 1
 
-        # ✅ Final save of all collected URLs
-        self.to_csv(filepath=f"output/immovlan_urls_{self.run_id}.csv")
+        final_csv = os.path.join(full_output_dir, f"urls_{filename_base}_records_{len(self.property_urls)}.csv")
+        self.to_csv(filepath=final_csv)
 
-        # Optional: Save summary stats
-        summary_path = f"output/stats_{self.run_id}.txt"
+        summary_path = os.path.join(full_output_dir, f"stats_{filename_base}.txt")
         with open(summary_path, "w") as stats:
             stats.write(f"Run ID         : {self.run_id}\n")
             stats.write(f"Pages visited  : {page}\n")
             stats.write(f"Total listings : {len(self.property_urls)}\n")
             stats.write(f"Timestamp      : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         logger.info(f"📊 Stats saved to {summary_path}")
-
-
-
 
     def close(self):
         self.driver.quit()

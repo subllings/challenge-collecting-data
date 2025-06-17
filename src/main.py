@@ -1,66 +1,52 @@
 import logging
-from datetime import datetime
-from src.immovlan_scraper import ImmovlanScraper  # Adjust the path if needed
+import os
+from pathlib import Path
+import pandas as pd
+from src.immovlan_scraper import ImmovlanScraper  
 
-# Generate a timestamp ID for this run
-log_id = datetime.now().strftime("%Y%m%d_%H%M")
+# Ensure folders exist
+os.makedirs("output", exist_ok=True)
+os.makedirs("data", exist_ok=True)
 
-# Configure logging: one file per run, with timestamp in the filename
+# Path to configuration file
+TOWNS_CSV_PATH = Path("data/immovlan_towns_to_scrape.csv")
+
+# Logger configuration
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    format="[%(levelname)s] %(asctime)s — %(message)s",
     handlers=[
-        logging.FileHandler(f"output/immovlan_run_{log_id}.log", mode="a", encoding="utf-8"),
+        logging.FileHandler("output/immovlan_scraper.log", mode="w", encoding="utf-8"),
         logging.StreamHandler()
     ]
 )
+logger = logging.getLogger(__name__)
+# Reduce seleniumwire verbosity
+logging.getLogger('seleniumwire').setLevel(logging.WARNING)
 
-# Define postal codes and towns
-postal_towns = {
-    "1070": "anderlecht", "1082": "berchem-sainte-agathe", "1040": "etterbeek", "1140": "evere",
-    "1083": "ganshoren", "1050": "elsene", "1081": "koekelberg", "1080": "sint-jans-molenbeek",
-    "1060": "sint-gillis", "1210": "sint-joost-ten-node", "1180": "ukkel", "1170": "watermaal-bosvoorde",
-    "1200": "woluwe-saint-lambert", "1150": "sint-pieters-woluwe", "1410": "waterloo", "1310": "la-hulpe",
-    "1950": "kraainem", "1970": "wezembeek-oppem", "3090": "overijse", "2950": "kapellen",
-    "3600": "genk", "2300": "turnhout"
-}
+def main():
+    logger.info("🚀 Starting Immovlan scraper")
 
-municipals = (
-    "brussels,braine-l-alleud,nivelles,wavre,ottignies-louvain-la-neuve,"
-    "rixensart,lasne,chaumont-gistoux,zaventem,vilvoorde,tervuren,dilbeek,grimbergen,"
-    "halle,sint-pieters-leeuw,villers-la-ville,genappe,zemst,kortenberg,rotselaar,nijlen,"
-    "leuven,liege,namur,charleroi,la-louviere,mons,tournai,hasselt,mechelen,sint-niklaas,"
-    "kortrijk,roeselare,aalst,dendermonde,marche-en-famenne,arlon"
-)
+    if not TOWNS_CSV_PATH.exists():
+        logger.error(f"Configuration file not found: {TOWNS_CSV_PATH}")
+        return
 
+    towns = pd.read_csv(TOWNS_CSV_PATH)["immovlan_url_name"].dropna().unique().tolist()
+    logger.info(f"📍 Total towns to scrape: {len(towns)}")
 
-# Suppress verbose Selenium-Wire logs
-logging.getLogger("seleniumwire").setLevel(logging.WARNING)
-
-def run_scraper():
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    logging.info(f"🚀 Starting Immovlan scraper at {timestamp}")
-
-    for postal_code, town_name in postal_towns.items():
-        # Build dynamic base URL per commune
-        base_url = (
+    for town in towns:
+        url = (
             "https://immovlan.be/en/real-estate"
             "?transactiontypes=for-sale,in-public-sale"
-            "&propertytypes=apartment,house"
-            "&propertysubtypes=apartment,studio,penthouse,ground-floor,duplex,loft,triplex,"
-            "residence,villa,mixed-building,master-house,bungalow,cottage,mansion,chalet"
-            f"&towns={postal_code}-{town_name.replace(' ', '-')}"
-            f"&municipals={municipals}"
-            "&noindex=1"
+            "&propertytypes=house,apartment"
+            f"&municipals={town}&noindex=1"
         )
-
-        logging.info(f"🌍 Scraping {postal_code} - {town_name}...")
-        scraper = ImmovlanScraper(base_url=base_url, max_pages=10000, run_id=log_id)
-        scraper.get_all_listing_urls(postal_code=postal_code, town_name=town_name)
+        logger.info(f"🔎 Scraping town: {town}")
+        scraper = ImmovlanScraper(base_url=url, town=town, max_pages=1)
+        scraper.scrape()
         scraper.close()
 
-        total = len(scraper.property_urls)
-        logging.info(f"✅ Completed {postal_code} - {town_name}: {total} URLs")
+    logger.info("✅ All towns scraped successfully.")
 
 if __name__ == "__main__":
-    run_scraper()
+    main()
