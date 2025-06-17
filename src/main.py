@@ -43,7 +43,7 @@ def main():
     
     towns = pd.read_csv(TOWNS_CSV_PATH)["immovlan_url_name"].dropna().str.strip().str.replace(" ", "", regex=False).unique().tolist()
 
-    logger.info(f"🏙️ Total towns to scrape: {len(towns)}")
+    logger.info(f"🌆 Total towns to scrape: {len(towns)}")
 
     if read_towns_url:
       for town in towns:
