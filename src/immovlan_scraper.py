@@ -7,6 +7,8 @@ from seleniumwire import webdriver
 from bs4 import BeautifulSoup
 from datetime import datetime
 from urllib.parse import urljoin
+import glob
+import csv 
 
 import pandas as pd
 import time
@@ -102,7 +104,7 @@ class ImmovlanScraper:
         output_log = os.path.join(full_output_dir, f"urls_by_page_{filename_base}.log")
 
         empty_pages_in_a_row = 0
-        max_empty_pages = 10
+        max_empty_pages = 3
         same_pages_in_a_row = 0
         max_same_pages = 10
         last_page_links = []
@@ -136,6 +138,7 @@ class ImmovlanScraper:
                         logger.warning(stop_msg)
                         f.write(stop_msg + "\n")
                         break
+                    page += 1
                     continue
 
                 last_height = self.driver.execute_script("return document.body.scrollHeight")
@@ -210,7 +213,8 @@ class ImmovlanScraper:
 
                 page_data = []
                 for i, url in enumerate(page_links, 1):
-                    entry = {"page": page, "url": url}
+                    #entry = {"page": page, "url": url}
+                    entry = {"town": town_name, "page": page, "url": url}
                     if entry not in self.property_urls:
                         self.property_urls.append(entry)
                     page_data.append(entry)
@@ -218,7 +222,8 @@ class ImmovlanScraper:
                     f.write(f"[{timestamp}] 🟢 [{i:02d}] {url}\n")
 
                 partial_csv_path = os.path.join(full_output_dir, f"partial_urls_page_{page}_{filename_base}.csv")
-                pd.DataFrame(page_data, columns=["page", "url"]).to_csv(partial_csv_path, index=False)
+                #pd.DataFrame(page_data, columns=["page", "url"]).to_csv(partial_csv_path, index=False)
+                pd.DataFrame(page_data, columns=["town", "page", "url"]).to_csv(partial_csv_path, index=False)
                 logger.info(f"[INFO] ✅ Partial CSV saved: {partial_csv_path}")
               
                 page += 1
@@ -245,3 +250,53 @@ class ImmovlanScraper:
         df = pd.DataFrame(self.property_urls)
         df.to_csv(filepath, index=False)
         logger.info(f"💾 CSV saved with {len(df)} rows: {filepath}")
+
+
+
+    @staticmethod
+    def consolidate_all_results(base_output_dir: str = "output", consolidated_dir_name: str = "consolidated_towns_urls") -> None:
+        logger.info("🔄 Consolidating all scraped results...")
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        final_dir = os.path.join(base_output_dir, f"{consolidated_dir_name}_{timestamp}")
+        os.makedirs(final_dir, exist_ok=True)
+
+        all_data = []
+        for root, dirs, files in os.walk(base_output_dir):
+            for file in files:
+                if file.startswith("urls_") and file.endswith(".csv"):
+                    file_path = os.path.join(root, file)
+                    logger.info(f"📥 Reading file: {file_path}")
+                    try:
+                        df = pd.read_csv(file_path)
+                        all_data.append(df)
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not read {file_path}: {e}")
+
+        if not all_data:
+            logger.warning("❌ No data files found to consolidate.")
+            return
+
+        combined_df = pd.concat(all_data, ignore_index=True)
+        combined_df.drop_duplicates(inplace=True)
+
+        consolidated_csv_name = f"{consolidated_dir_name}_{timestamp}.csv"
+        consolidated_csv_path = os.path.join(final_dir, consolidated_csv_name)
+        combined_df.to_csv(consolidated_csv_path, index=False)
+        logger.info(f"✅ Consolidated CSV written: {consolidated_csv_path}")
+
+        stats_path = os.path.join(final_dir, f"stats_consolidation_{timestamp}.txt")
+        with open(stats_path, "w") as f:
+            f.write(f"Files combined  : {len(all_data)}\n")
+            f.write(f"Unique listings : {len(combined_df)}\n")
+            f.write(f"Timestamp       : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+
+        logger.info(f"📊 Consolidation stats written: {stats_path}")
+        logger.info("✅ All towns consolidated in one CSV.")
+
+
+
+    
+
+
+        
