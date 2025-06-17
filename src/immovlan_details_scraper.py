@@ -10,9 +10,10 @@ from selenium.webdriver.chrome.options import Options
 from src.utils.logger import logger
 
 class ImmovlanDetailsScraper:
-    def __init__(self, output_dir: str = "output", limit: int = -1):
+    def __init__(self, output_dir: str = "output", headless: bool = True, limit: int = -1):
         self.output_dir = output_dir
         self.limit = limit
+        self.headless = headless
         self.csv_file = self._get_latest_consolidated_csv()
         self.driver = self._init_driver()
         self.output_file = self._generate_output_file_path()
@@ -25,16 +26,18 @@ class ImmovlanDetailsScraper:
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
+        if self.headless:
+            options.add_argument("--headless=new")        
         return webdriver.Chrome(options=options)
 
     def _generate_output_file_path(self):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-        dir_path = os.path.join(self.output_dir, f"real_estate_details_{timestamp}")
+        dir_path = os.path.join(self.output_dir, f"_real_estate_details_{timestamp}")
         os.makedirs(dir_path, exist_ok=True)
-        return os.path.join(dir_path, f"real_estate_details_{timestamp}.csv")
+        return os.path.join(dir_path, f"_real_estate_details_{timestamp}.csv")
 
     def _get_latest_consolidated_csv(self):
-        pattern = os.path.join(self.output_dir, "consolidated_towns_urls_*/consolidated_towns_urls_*.csv")
+        pattern = os.path.join(self.output_dir, "_consolidated_towns_urls_*/_consolidated_towns_urls_*.csv")
         files = glob.glob(pattern)
         if not files:
             raise FileNotFoundError("No consolidated CSV file found.")
@@ -77,7 +80,6 @@ class ImmovlanDetailsScraper:
                         "property_type": soup.select_one(".detail__header_title_main").text.strip().split()[0] if soup.select_one(".detail__header_title_main") else None,
                         "price": soup.select_one(".detail__header_price_data").text.strip() if soup.select_one(".detail__header_price_data") else None,
                         "address": soup.select_one(".detail__header_address").text.strip() if soup.select_one(".detail__header_address") else None,
-                        "postal_code": None,
                         "city": None,
                         "bedrooms": get_label_value("Number of bedrooms"),
                         "bedroom1_surface": get_label_value("Surface bedroom 1"),

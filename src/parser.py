@@ -22,7 +22,7 @@ def parse_listing(listing: Dict[str, Any]) -> Dict[str, Any]:
             "Open fire": int(bool(listing.get("property", {}).get("fireplaceExists"))),
 
             "Terrace": int(bool(listing.get("property", {}).get("hasTerrace"))),
-            "Terrace Area": listing.get("property", {}).get("terraceSurface"),
+            "Terrace Area": listing.get("property", {}).get("terraceSurface"), 
 
             "Garden": int(bool(listing.get("property", {}).get("hasGarden"))),
             "Garden Area": listing.get("property", {}).get("gardenSurface"),
