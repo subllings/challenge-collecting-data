@@ -28,21 +28,23 @@ logger = logging.getLogger(__name__)
 logging.getLogger('seleniumwire').setLevel(logging.WARNING)
 
 def main():
-    read_towns_url = False
+    read_towns_url = True
     consolidate_all_tows_url = False
-    extract_details_from_consolidated = True
+    extract_details_from_consolidated = False
 
 
     logger.info("🚀 Starting Immovlan scraper")
 
+    # Town url extration
     if not TOWNS_CSV_PATH.exists():
         logger.error(f"Configuration file not found: {TOWNS_CSV_PATH}")
         return
 
-    towns = pd.read_csv(TOWNS_CSV_PATH)["immovlan_url_name"].dropna().unique().tolist()
+    
+    towns = pd.read_csv(TOWNS_CSV_PATH)["immovlan_url_name"].dropna().str.strip().str.replace(" ", "", regex=False).unique().tolist()
+
     logger.info(f"🏙️ Total towns to scrape: {len(towns)}")
 
-    # Town url extration
     if read_towns_url:
       for town in towns:
           url = (
@@ -51,6 +53,8 @@ def main():
               "&propertytypes=house,apartment"
               f"&municipals={town}&noindex=1"
           )
+          logger.debug(f"🌐🌐🌐 URL used for {town}: {url}")
+
           logger.info(f"🔎 Scraping town: {town}")
           scraper = ImmovlanScraper(base_url=url, town=town, max_pages=-1)
           scraper.scrape()
@@ -65,7 +69,7 @@ def main():
 
     # Extract details real estate from consolidated URLs
     if extract_details_from_consolidated:
-        scraper_detail = ImmovlanDetailsScraper(output_dir="output", limit=1)
+        scraper_detail = ImmovlanDetailsScraper(output_dir="output", limit=-1)
         scraper_detail.extract_all()
         scraper_detail.close()
 

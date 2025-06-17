@@ -49,7 +49,7 @@ class ImmovlanScraper:
 
         driver = webdriver.Chrome(options=options, seleniumwire_options=seleniumwire_options)
 
-        # ✅ Interceptor défini AVANT tout appel à .get()
+        # Interceptor defined BEFORE any call to .get()
         def interceptor(request):
             blocked_domains = [
                 'doubleclick.net',
@@ -76,6 +76,11 @@ class ImmovlanScraper:
 
         driver.request_interceptor = interceptor
         return driver
+
+    def restart_driver(self):
+        logger.warning("🔄 Restarting Selenium driver...")
+        self.close()
+        self.driver = self._init_driver()
 
 
     def handle_cookie_banner(self):
@@ -114,10 +119,18 @@ class ImmovlanScraper:
             while self.max_pages == -1 or page <= self.max_pages:
                 full_url = f"{self.base_url}&page={page}"
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                logger.info(f">>> Visiting page {page}: {full_url}")
+                logger.info(f"📄 Visiting page {page}: {full_url}")
                 f.write(f"\n[{timestamp}] === Page {page} ===\n>>> Visiting: {full_url}\n")
 
+                # Check that the session is active (prevents InvalidSessionIdException)
+                try:
+                    _ = self.driver.session_id
+                except Exception:
+                    logger.warning("⚠️ Driver session inactive — restarting.")
+                    self.restart_driver()
+
                 self.driver.get(full_url)
+
                 self.driver.requests.clear()
                 self.handle_cookie_banner()
 
@@ -141,11 +154,22 @@ class ImmovlanScraper:
                     page += 1
                     continue
 
-                last_height = self.driver.execute_script("return document.body.scrollHeight")
+                try:
+                    last_height = self.driver.execute_script("return document.body.scrollHeight")
+                except Exception:
+                    logger.error("❌ Failed to get page height — session likely lost. Skipping page.")
+                    break              
+                
                 while True:
                     self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                     time.sleep(random.uniform(1.5, 2.5))
-                    new_height = self.driver.execute_script("return document.body.scrollHeight")
+
+                    try:
+                        new_height = self.driver.execute_script("return document.body.scrollHeight")
+                    except Exception:
+                        logger.error("❌ Failed to scroll — session lost. Breaking scroll loop.")
+                        break
+                    
                     if new_height == last_height:
                         break
                     last_height = new_height
@@ -240,7 +264,10 @@ class ImmovlanScraper:
         logger.info(f"📊 Stats saved to {summary_path}")
 
     def close(self):
-        self.driver.quit()
+        try:
+            self.driver.quit()
+        except Exception as e:
+            logger.warning(f"⚠️ Error while closing driver: {e}")        
 
     def to_csv(self, filepath: str):
         if not self.property_urls:
@@ -255,7 +282,7 @@ class ImmovlanScraper:
 
     @staticmethod
     def consolidate_all_results(base_output_dir: str = "output", consolidated_dir_name: str = "consolidated_towns_urls") -> None:
-        logger.info("🔄 Consolidating all scraped results...")
+        logger.info("🧮 Consolidating all scraped results...")
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M")
         final_dir = os.path.join(base_output_dir, f"{consolidated_dir_name}_{timestamp}")
