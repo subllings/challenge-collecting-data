@@ -66,6 +66,9 @@ class ImmovlanScraper:
 
         empty_pages_in_a_row = 0
         max_empty_pages = 10
+        same_pages_in_a_row = 0
+        max_same_pages = 10
+        last_page_links = []
 
         with open(output_path, "w", encoding="utf-8") as f:
             for page in range(1, self.max_pages + 1):
@@ -75,6 +78,7 @@ class ImmovlanScraper:
                 f.write(f"\n[{timestamp}] === Page {page} ===\n>>> Visiting: {full_url}\n")
 
                 self.driver.get(full_url)
+                self.driver.requests.clear()  # ✅ Clear previous network traffic for this page
                 self.handle_cookie_banner()
 
                 try:
@@ -131,6 +135,24 @@ class ImmovlanScraper:
                             continue
 
                 page_links = sorted(dom_links.union(xhr_links))
+                #  Stop if current page returns exactly same links as the previous one
+                if page_links == last_page_links:
+                    same_pages_in_a_row += 1
+                    msg = f"[WARNING] Same links as previous page at page {page} ({same_pages_in_a_row} in a row)."
+                    logger.warning(msg)
+                    f.write(f"[{timestamp}] {msg}\n")
+
+                    if same_pages_in_a_row >= max_same_pages:
+                        stop_msg = (
+                            f"\n[{timestamp}] 🛑 Stopping: {max_same_pages} pages with identical links detected. Likely the end."
+                        )
+                        logger.warning(stop_msg)
+                        f.write(stop_msg + "\n")
+                        break
+                else:
+                    same_pages_in_a_row = 0
+
+                last_page_links = page_links                
 
                 if not page_links:
                     msg = f"[WARNING] No property links found on page {page}."
@@ -162,13 +184,6 @@ class ImmovlanScraper:
                     logger.info(f"🟢 [{i:02d}] URL found: {url}")
                     f.write(f"[{timestamp}] 🟢 [{i:02d}] {url}\n")
 
-                # Save page snapshot
-                """""
-                debug_path = f"output/debug_links_page_{page}_{self.run_id}.html"
-                with open(debug_path, "w", encoding="utf-8") as dbg:
-                    dbg.write(self.driver.page_source)
-                logger.info(f"[INFO] Saved HTML snapshot to {debug_path}")
-                """
                 # ✅ Save partial CSV with only this page’s URLs
                 partial_csv_path = f"output/partial_urls_page_{page}_{self.run_id}.csv"
                 pd.DataFrame(page_data, columns=["page", "url"]).to_csv(partial_csv_path, index=False)
