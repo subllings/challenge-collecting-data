@@ -65,7 +65,7 @@ Thumbs.db
 # === Pytest cache ===
 .cache/
 
-# === Output files (JSON, CSV, etc.) ===
+# === Output files ===
 output/
 
 # === docs-pdoc ===

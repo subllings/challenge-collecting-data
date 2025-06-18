@@ -67,7 +67,7 @@ print_blue "Cleaning previous documentation..."
 rm -rf "$OUTPUT_DIR"
 
 # === Generate documentation ===
-for TARGET_MODULE in src/exporter.py src/immovlan_details_scraper.py src/immovlan_url_scraper.py src/main.py
+for TARGET_MODULE in src/immovlan_details_scraper.py src/immovlan_url_scraper.py src/main.py
 do
     print_blue "Generating documentation for: $TARGET_MODULE"
     pdoc "$TARGET_MODULE" --output-dir "$OUTPUT_DIR" || print_error "Documentation generation failed for $TARGET_MODULE."
