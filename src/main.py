@@ -78,9 +78,9 @@ def main():
           logger.debug("🌐🌐🌐 URL used for %s: %s", town, url)
 
           logger.info("🔎 Scraping town: %s", town)
-          scraper = ImmovlanUrlScraper(base_url=url, town=town, headless=True, max_pages=2)
-          scraper.scrape()
-          scraper.close()
+          scraper_urls = ImmovlanUrlScraper(base_url=url, town=town, headless=True, max_pages=2)
+          scraper_urls.scrape_and_save_urls()
+          scraper_urls.close()
 
       logger.info("✅ All towns scraped successfully.")
 
@@ -101,9 +101,9 @@ def main():
     # ----------------------------------------------------------------
 
     if extract_details_from_consolidated:
-        scraper_detail = ImmovlanDetailsScraper(output_dir="output", headless=True, limit=10)
-        scraper_detail.extract_all()
-        scraper_detail.close()
+        scraper_details_properties = ImmovlanDetailsScraper(output_dir="output", headless=True, limit=10)
+        scraper_details_properties.scrape_and_save_properties()
+        scraper_details_properties.close()
 
         logger.info("👏 Real estate details extracted from consolidated URLs.")
 

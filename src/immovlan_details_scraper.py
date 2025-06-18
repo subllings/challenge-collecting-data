@@ -12,42 +12,11 @@ from src.utils.logger import logger
 class ImmovlanDetailsScraper:
     """
     ImmovlanDetailsScraper is a class designed to extract detailed real estate property information from Immovlan URLs listed in a consolidated CSV file. It uses Selenium WebDriver to navigate property detail pages and BeautifulSoup to parse and extract relevant data fields, saving the results to a timestamped CSV file.
-    Attributes:
-        output_dir (str): Directory where output files are stored.
-        limit (int): Maximum number of rows to process from the input CSV. If -1, all rows are processed.
-        headless (bool): Whether to run the browser in headless mode.
-        csv_file (str): Path to the latest consolidated CSV file containing property URLs.
-        driver (webdriver.Chrome): Selenium WebDriver instance.
-        output_file (str): Path to the output CSV file for extracted details.
-    Methods:
-        _init_driver():
-            Initializes and returns a configured Selenium Chrome WebDriver instance.
-        _generate_output_file_path():
-            Generates a unique output file path based on the current timestamp and ensures the output directory exists.
-        _get_latest_consolidated_csv():
-            Finds and returns the path to the most recent consolidated CSV file matching the expected pattern.
-        extract_all():
-            Reads the consolidated CSV, navigates to each property URL, extracts detailed information using BeautifulSoup, and writes the results to the output CSV file. Handles errors gracefully and logs progress.
-        close():
-            Closes the Selenium WebDriver instance.
     """
 
     def __init__(self, output_dir: str = "output", headless: bool = True, limit: int = -1):
         """
         Initializes the scraper with specified output directory, headless mode, and result limit.
-
-        Args:
-            output_dir (str, optional): Directory where output files will be saved. Defaults to "output".
-            headless (bool, optional): Whether to run the browser in headless mode. Defaults to True.
-            limit (int, optional): Maximum number of items to process. Use -1 for no limit. Defaults to -1.
-
-        Attributes:
-            output_dir (str): Directory for output files.
-            limit (int): Maximum number of items to process.
-            headless (bool): Headless mode flag for the browser.
-            csv_file (str): Path to the latest consolidated CSV file.
-            driver (WebDriver): Selenium WebDriver instance.
-            output_file (str): Path to the output file.
         """
 
         self.output_dir = output_dir
@@ -125,26 +94,15 @@ class ImmovlanDetailsScraper:
             raise FileNotFoundError("No consolidated CSV file found.")
         return max(files, key=os.path.getmtime)
 
-    def extract_all(self):
+    def scrape_and_save_properties(self):
         """
         Extracts detailed property information from URLs listed in a CSV file and writes the results to an output CSV file.
         This method reads a CSV file specified by `self.csv_file`, optionally limits the number of rows processed,
         and iterates through each property URL. For each URL, it navigates to the page using Selenium, parses the HTML
         with BeautifulSoup, and extracts various property details such as price, address, number of bedrooms, surface areas,
         and energy performance data. The extracted data is written to a new CSV file specified by `self.output_file`.
-        
-        Fields extracted include:
-            - town, page, url, property_type, price, address, postal_code, city
-            - bedrooms, bedroom1_surface, bedroom2_surface, bathrooms, toilets
-            - surface_livable, terrace, terrace_surface, terrace_orientation, floor, year_built
-            - condition, kitchen_equipment, cellar, glazing_type, elevator, entry_phone
-            - epc_score, epc_total, epc_valid_until
-        Logs progress and any extraction errors encountered.
-        
-        Raises:
-            Any exceptions encountered during extraction are caught and logged as warnings.
         """
-        logger.info(f"🔍 Reading from: {self.csv_file}")
+        logger.info("🔍 Reading from: %s", self.csv_file)
         df = pd.read_csv(self.csv_file)
         if self.limit != -1:
             df = df.head(self.limit)
@@ -212,11 +170,11 @@ class ImmovlanDetailsScraper:
                             pass
 
                     writer.writerow(details)
-                    logger.info(f"✅ [{i}/{len(df)}] Extracted: {row.url}")
+                    logger.info("✅ [%d/%d] Extracted: %s", i, len(df), row.url)
                 except Exception as e:
-                    logger.warning(f"⚠️ Error extracting from {row.url}: {e}")
+                    logger.warning("⚠️ Error extracting from %s: %s", row.url, e)
 
-        logger.info(f"💾 Saved detailed data to: {self.output_file}")
+        logger.info("💾 Saved detailed data to: %s", self.output_file)
 
     def close(self):
         """

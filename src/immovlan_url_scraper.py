@@ -19,71 +19,11 @@ class ImmovlanUrlScraper:
     """
     ImmovlanScraper
     A class for scraping real estate property listing URLs from Immovlan for a given town, with support for pagination, session management, and output consolidation.
-    
-    Attributes:
-        base_url (str): The base URL for the Immovlan search results.
-        town (str): The name of the town to scrape listings for.
-        max_pages (int): Maximum number of pages to scrape. If -1, scrape all available pages.
-        delay_min (float): Minimum delay between requests (not actively used in this code).
-        delay_max (float): Maximum delay between requests (not actively used in this code).
-        run_id (str): Unique identifier for the scraping run. Defaults to current timestamp if not provided.
-        output_dir (str): Directory where output files will be saved.
-        driver (webdriver.Chrome): Selenium WebDriver instance for browser automation.
-        property_urls (list): List of dictionaries containing scraped property URLs and metadata.
-        data (list): Placeholder for additional data (not actively used in this code).
-
-    Methods:
-        _init_driver():
-            Initializes and returns a configured Selenium Chrome WebDriver with request interception for blocking unwanted domains.
-        restart_driver():
-            Restarts the Selenium WebDriver, closing the current session and starting a new one.
-        handle_cookie_banner():
-            Attempts to dismiss the cookie consent banner if present on the page.
-        scrape():
-            Main entry point for scraping; initiates the process of collecting all listing URLs for the specified town.
-        get_all_listing_urls(town_name: str):
-            Iterates through paginated search results, collects property listing URLs, handles scrolling and session issues, and saves intermediate and final results to CSV and log files.
-        close():
-            Closes the Selenium WebDriver session safely.
-        to_csv(filepath: str):
-            Saves the collected property URLs to a CSV file at the specified path.
-        consolidate_all_results(base_output_dir: str = "output", consolidated_dir_name: str = "consolidated_towns_urls"):
-            Static method to combine all individual run CSVs into a single consolidated CSV, removing duplicates and saving summary statistics.
-    
-    Usage:
-        scraper = ImmovlanScraper(base_url, town)
-        scraper.scrape()
-        scraper.close()
-        ImmovlanScraper.consolidate_all_results()
-
     """
-
-
+    
     def __init__(self, base_url: str, town: str, max_pages: int = -1, delay_min: float = 1.0, delay_max: float = 2.5, run_id: str = None, output_dir: str = "output", headless: bool = True):
         """
         Initializes the immovlan_scraper instance with the specified parameters.
-
-        Args:
-            base_url (str): The base URL of the website to scrape.
-            town (str): The name of the town to filter property listings.
-            max_pages (int, optional): The maximum number of pages to scrape. Defaults to -1 (no limit).
-            delay_min (float, optional): The minimum delay (in seconds) between requests. Defaults to 1.0.
-            delay_max (float, optional): The maximum delay (in seconds) between requests. Defaults to 2.5.
-            run_id (str, optional): An identifier for the current run. If None, a timestamp is used. Defaults to None.
-            output_dir (str, optional): Directory where output files will be saved. Defaults to "output".
-
-        Attributes:
-            base_url (str): The base URL for scraping.
-            town (str): The town to search for properties.
-            max_pages (int): The maximum number of pages to scrape.
-            delay_min (float): Minimum delay between requests.
-            delay_max (float): Maximum delay between requests.
-            run_id (str): Identifier for the current run.
-            output_dir (str): Directory for output files.
-            driver: The Selenium WebDriver instance.
-            property_urls (list): List to store property URLs.
-            data (list): List to store scraped data.
-            headless (bool): Flag to indicate if the browser should run in headless mode.
         """
 
         self.base_url = base_url
@@ -124,6 +64,7 @@ class ImmovlanUrlScraper:
     def _init_driver(self):
         """
         Initializes and returns a Selenium Chrome WebDriver instance with custom options and a request interceptor.
+        
         The driver is configured with:
             - A custom user-agent string.
             - Disabled extensions and GPU usage.
@@ -131,6 +72,7 @@ class ImmovlanUrlScraper:
             - No sandbox and disabled shared memory usage for compatibility.
             - Selenium Wire options for in-memory request storage and disabled SSL verification.
         Additionally, a request interceptor is set up to block network requests to a predefined list of advertising, analytics, and tracking domains, as well as certain image and privacy-related domains.
+        
         Returns:
             seleniumwire.webdriver.Chrome: Configured Chrome WebDriver instance with request interception.
         """
@@ -232,7 +174,7 @@ class ImmovlanUrlScraper:
         except Exception as e:
             logger.warning("⚠️ Unexpected error while handling cookie banner: %s", e)
 
-    def scrape(self):
+    def scrape_and_save_urls(self):
         """
         Scrapes real estate listings for the specified town.
 
@@ -249,23 +191,6 @@ class ImmovlanUrlScraper:
         Scrapes all property listing URLs for a given town from the target website, handling pagination, scrolling, 
         and session management. Saves found URLs and progress logs to disk, including partial CSVs per page and a 
         final CSV with all collected URLs.
-        Args:
-            town_name (str): The name of the town to search for property listings.
-        Side Effects:
-            - Creates a folder for the run, named with the town and run ID.
-            - Writes progress and warnings to a log file.
-            - Saves partial CSV files with URLs found on each page.
-            - Saves a final CSV file with all unique property URLs found.
-            - Writes a summary statistics file with run details.
-        Behavior:
-            - Iterates through paginated search results, visiting each page.
-            - Handles session timeouts and restarts the driver if needed.
-            - Scrolls to the bottom of each page to load all listings.
-            - Extracts property URLs from both the DOM and XHR JSON responses.
-            - Stops if too many consecutive empty or duplicate pages are encountered.
-            - Logs and saves all relevant information for debugging and reproducibility.
-        Raises:
-            None directly, but logs and handles exceptions related to driver/session issues and page timeouts.
         """
         folder_name = f"{town_name}_{self.run_id}"
 
@@ -471,11 +396,6 @@ class ImmovlanUrlScraper:
         This function searches recursively within the specified `base_output_dir` for CSV files whose names start with "urls_" and end with ".csv". 
         It reads all found files, concatenates their contents into a single DataFrame, removes duplicate entries, and writes the consolidated data to a new timestamped CSV file in a newly created directory. 
         Additionally, it generates a statistics text file summarizing the consolidation process, including the number of files combined and the number of unique listings.
-        Args:
-            base_output_dir (str): The root directory to search for CSV files. Defaults to "output".
-            consolidated_dir_name (str): The base name for the directory and consolidated CSV file. Defaults to "consolidated_towns_urls".
-        Returns:
-            None
         """
         logger.info("🧮 Consolidating all scraped results...")
 

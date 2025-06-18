@@ -57,7 +57,7 @@ In the `main.py` file, for the `ImmovlanUrlScraper` class, you can control the n
 Set `max_pages = -1` for no page limit.
 
 ```python
-scraper =  ImmovlanUrlScraper(base_url=url, town=town, headless=True, max_pages=2)
+scraper_urls =  ImmovlanUrlScraper(base_url=url, town=town, headless=True, max_pages=2)
 ```
 
 Similarly, the `ImmovlanDetailsScraper` class allows you to limit the number of real estate URL  to process by using the `limit` parameter.
