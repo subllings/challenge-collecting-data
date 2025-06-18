@@ -78,7 +78,7 @@ def main():
           logger.debug("🌐🌐🌐 URL used for %s: %s", town, url)
 
           logger.info("🔎 Scraping town: %s", town)
-          scraper_urls = ImmovlanUrlScraper(base_url=url, town=town, headless=True, max_pages=2)
+          scraper_urls = ImmovlanUrlScraper(base_url=url, town=town, headless=True, max_pages=-1)
           scraper_urls.scrape_and_save_urls()
           scraper_urls.close()
 

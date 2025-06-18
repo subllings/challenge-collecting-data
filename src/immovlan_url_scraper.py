@@ -162,16 +162,25 @@ class ImmovlanUrlScraper:
             Logs exceptions but does not propagate them.
         """
         try:
+            # Wait up to 5 seconds for a clickable element related to cookie consent to appear.
+            # The selector targets any <button> or elements with IDs or classes containing "cookie".
             accept_button = WebDriverWait(self.driver, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, "button, [id*='cookie'], [class*='cookie']"))
             )
+
+             # If found and clickable, click the button to dismiss the banner.
             accept_button.click()
+
             # Log a confirmation message once the cookie consent banner has been successfully dismissed 
             # (i.e., closed or rejected so it no longer blocks interaction with the page).            
             logger.info("✔️  Cookie banner dismissed (closed, no longer blocks interaction with the page)")
+
         except TimeoutException:
+            # If no cookie banner appears within 5 seconds, log that none was found.
             logger.info("ℹ️ No cookie banner found.")
+        
         except Exception as e:
+            # Catch and log any unexpected error that occurred during this process.
             logger.warning("⚠️ Unexpected error while handling cookie banner: %s", e)
 
     def scrape_and_save_urls(self):
@@ -214,27 +223,44 @@ class ImmovlanUrlScraper:
                 logger.info("👉📄 Visiting page %d: %s", page, full_url)
                 f.write(f"\n[{timestamp}] === Page {page} ===\n>>> Visiting: {full_url}\n")
 
-                # Check that the session is active (prevents InvalidSessionIdException)
+                # Check that the current Selenium driver session is still active.
+                # This is crucial to prevent errors such as InvalidSessionIdException
+                # that occur if the browser has crashed or the session was lost unexpectedly.                
                 try:
-                    _ = self.driver.session_id
+                    _ = self.driver.session_id # Accessing the session_id will raise if the session is invalid
                 except Exception:
+                    # Log a warning and restart the driver if the session is no longer valid.
+                    # This allows the scraper to recover without crashing.
                     logger.warning("⚠️ Driver session inactive — restarting.")
                     self.restart_driver()
 
+                # Navigate the Selenium driver to the full URL of the real estate listing
                 self.driver.get(full_url)
 
+                # Clear all previously stored requests captured by Selenium Wire
+                # This ensures that only the network traffic for the current page is recorded
                 self.driver.requests.clear()
+
+                # Handle the cookie consent banner if it appears
+                # This step ensures that the banner does not block further interaction with the page                
                 self.handle_cookie_banner()
 
                 try:
+                    # Wait up to 10 seconds for at least one real estate listing link to be present on the page.
+                    # The selector targets any anchor tag with '/en/detail/' in the href, which identifies valid listings.
                     WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "a[href*='/en/detail/']"))
                     )
                 except TimeoutException:
+                    # If no valid listing links are found within 10 seconds, log a warning and mark the page as empty
                     msg = f"[WARNING] Timeout on page {page}. Page structure not recognized. Skipping."
                     logger.warning(msg)
                     f.write(f"[{timestamp}] {msg}\n")
+
+                    # Increment the counter for consecutive empty pages
                     empty_pages_in_a_row += 1
+
+                    # If too many consecutive empty pages are encountered, stop the scraping process
                     if empty_pages_in_a_row >= max_empty_pages:
                         stop_msg = (
                             f"\n[{timestamp}] ⚫ Script stopped after {max_empty_pages} consecutive pages "
@@ -242,60 +268,78 @@ class ImmovlanUrlScraper:
                         )
                         logger.warning(stop_msg)
                         f.write(stop_msg + "\n")
-                        break
+                        break # Exit the pagination loop
                     page += 1
-                    continue
+                    continue # Skip to the next page
 
                 try:
+                    # Attempt to retrieve the total scroll height of the current web page using JavaScript.
+                    # This is often used to determine if dynamic content (e.g., lazy-loaded listings) needs to be scrolled into view.
                     last_height = self.driver.execute_script("return document.body.scrollHeight")
                 except Exception:
+                    # If the call fails (e.g., due to session loss or browser crash), log the error and skip this page.
                     logger.error("❌ Failed to get page height — session likely lost. Skipping page.")
-                    break              
+                    break # Exit the loop and move on to the next town or operation             
                 
+                # Continuously scroll down the page to load additional dynamic content (e.g., lazy-loaded listings)
                 while True:
+                    # Scroll to the bottom of the current page
                     self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+                     # Wait for a random interval to mimic human behavior and allow content to load
                     time.sleep(random.uniform(1.5, 2.5))
 
                     try:
+                        # Get the new scroll height after the scroll action
                         new_height = self.driver.execute_script("return document.body.scrollHeight")
                     except Exception:
+                        # If unable to retrieve scroll height (e.g., session expired), log the issue and exit the loop
                         logger.error("❌ Failed to scroll — session lost. Breaking scroll loop.")
                         break
                     
+                    # If scroll height did not change, no new content was loaded. Exit scrolling loop
                     if new_height == last_height:
                         break
+                    
+                    # Update the last known height to compare in the next iteration
                     last_height = new_height
 
+                # Locate all anchor elements (<a>) on the page whose href attribute contains "/en/detail/"
+                # These typically correspond to links to individual real estate property listings
                 links_dom = self.driver.find_elements(By.XPATH, "//a[contains(@href, '/en/detail/')]")
+                
+                # Build a set of cleaned and deduplicated listing URLs:
+                # - Extract the href attribute from each element
+                # - Remove any query parameters (e.g., ?ref=tracking_id) by splitting on "?"
+                # - Strip leading/trailing whitespace
+                # - Ensure the href is valid and contains the expected substrin                
                 dom_links = {
                     elem.get_attribute("href").split("?")[0].strip()
                     for elem in links_dom
                     if elem.get_attribute("href") and "/en/detail/" in elem.get_attribute("href")
                 }
 
-                xhr_links = set()
-                for req in self.driver.requests:
-                    if req.response and "application/json" in req.headers.get("accept", ""):
-                        try:
-                            body = req.response.body.decode("utf-8", errors="ignore")
-                            data = json.loads(body)
-                            for container in ['items', 'list', 'results']:
-                                if container in data:
-                                    for item in data[container]:
-                                        url = item.get("detailUrl") or item.get("url")
-                                        if url and url.startswith("http"):
-                                            xhr_links.add(url.split("?")[0])
-                        except Exception:
-                            continue
+                # Sort the list of links extracted from the current page's DOM to ensure consistent comparison
+                page_links = sorted(dom_links)
 
-                page_links = sorted(dom_links.union(xhr_links))
+                # Check whether the current page's links are exactly the same as the previous page's
                 if page_links == last_page_links:
+                    
+                    # If so, increment the counter that tracks how many consecutive pages have the same links
                     same_pages_in_a_row += 1
+
+                    # Prepare a warning message indicating duplicate pages have been detected
                     msg = f"[WARNING] Same links as previous page at page {page} ({same_pages_in_a_row} in a row)."
+                    
+                    # Log the warning message for debugging and analysis
                     logger.warning(msg)
+
+                    # Write the warning message to a log file with a timestamp
                     f.write(f"[{timestamp}] {msg}\n")
 
+                    # If too many pages in a row are duplicates, assume scraping has reached the end
                     if same_pages_in_a_row >= max_same_pages:
+                        # Prepare a stop message to explain why the scraping is being stopped
                         stop_msg = (
                             f"\n[{timestamp}] 🔵 Stopping: {max_same_pages} pages with identical links detected. Likely the end."
                         )
@@ -303,51 +347,100 @@ class ImmovlanUrlScraper:
                         f.write(stop_msg + "\n")
                         break
                 else:
+                    # If the current page's links differ from the previous page, reset the duplicate counter
                     same_pages_in_a_row = 0
-
+                
+                # Save the current page's links as the "last seen" for comparison on the next iteration
                 last_page_links = page_links
 
+                # Check if the current page contains no property links at all
+                # (page number is not relevant, bigger than the maximum pages available on the website)
                 if not page_links:
+
+                    # Prepare a warning message indicating that no links were found on this page
                     msg = f"[WARNING] No property links found on page {page}."
+
+                     # Log the warning for debugging or monitoring purposes
                     logger.warning(msg)
+
+                     # Write the warning message to the log file with a timestamp
                     f.write(f"[{timestamp}] {msg}\n")
+
+                    # Increment the counter tracking how many empty pages have been seen in a row
                     empty_pages_in_a_row += 1
                     if empty_pages_in_a_row >= max_empty_pages:
+                        
+                        # Prepare a stop message explaining why the scraper is being stopped
                         stop_msg = (
                             f"\n[{timestamp}] ⚫ Script stopped after {max_empty_pages} consecutive empty pages "
                             f"(last at page {page})."
                         )
+                         # Log the stopping reason
                         logger.warning(stop_msg)
+
+                        # Also write this reason to the output log file
                         f.write(stop_msg + "\n")
+
+                        # Exit the scraping loop
                         break
+
+                    # Skip the rest of the loop and move to the next page
                     continue
                 else:
+                    # If the page had property links, reset the empty page counter
                     empty_pages_in_a_row = 0
 
+                # Log an info message showing how many property links were found on the current page
                 logger.info("[INFO] Found %d property links on page %d", len(page_links), page)
+
+                # Write the same information to the log file with a timestamp
                 f.write(f"[{timestamp}] [INFO] Found {len(page_links)} property links on page {page}\n")
 
+                # Initialize a list to hold the URLs collected from the current page
                 page_data = []
+
+                # Iterate through all links found on the page, with enumeration starting at 1 for display purposes
                 for i, url in enumerate(page_links, 1):
-                    #entry = {"page": page, "url": url}
+
+                    # Create a dictionary entry containing the town name, page number, and property URL
                     entry = {"town": town_name, "page": page, "url": url}
+
+                    # Add the entry to the main list of all discovered property URLs, avoiding duplicates
                     if entry not in self.property_urls:
                         self.property_urls.append(entry)
+                    
+                    # Add the entry to the current page's data list
                     page_data.append(entry)
+
+                    # Log each individual URL found, with an index (e.g., [01], [02], etc.)
                     logger.info("🟢 [%02d] URL found: %s", i, url)
+
+                    # Write the URL to the log file as well, with the timestamp and index
                     f.write(f"[{timestamp}] 🟢 [{i:02d}] {url}\n")
 
+                # Construct the output path for the partial CSV containing links from the current page
                 partial_csv_path = os.path.join(full_output_dir, f"partial_urls_page_{page}_{filename_base}.csv")
                 
+                # Save the collected links for the current page into a CSV file (columns: town, page, url)
                 pd.DataFrame(page_data, columns=["town", "page", "url"]).to_csv(partial_csv_path, index=False)
+
+                # Log that the partial CSV was successfully saved
                 logger.info("[INFO] ✅ Partial CSV saved: %s", partial_csv_path)
               
                 page += 1
 
+        # Define the path for the final CSV file containing all collected property URLs
+        # The filename includes the base name and total number of records for traceability
         final_csv = os.path.join(full_output_dir, f"urls_{filename_base}_records_{len(self.property_urls)}.csv")
+        
+        # Export all collected property URLs to the final CSV file
         self.to_csv(filepath=final_csv)
 
+        # Define the path for the summary statistics file
+        # This will log high-level information about the scraping sessio
         summary_path = os.path.join(full_output_dir, f"stats_{filename_base}.txt")
+        
+        # Open the summary file in write mode with UTF-8 encoding
         with open(summary_path, "w", encoding="utf-8") as stats:
             stats.write(f"Run ID         : {self.run_id}\n")
             stats.write(f"Pages visited  : {page}\n")
