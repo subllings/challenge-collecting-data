@@ -92,7 +92,7 @@ def main():
 
     if consolidate_all_tows_url:
         ImmovlanUrlScraper.consolidate_all_results(base_output_dir="output", consolidated_dir_name="_consolidated_towns_urls")
-        logger.info("✅ All towns consolidated in one csv.")
+        logger.info("✅ All towns consolidated in one CSV.")
 
     # ----------------------------------------------------------------
     # 3. For all url collected during step 2, extract details real estate 
