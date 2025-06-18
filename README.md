@@ -8,7 +8,8 @@ The goal is to build a **clean dataset with over 10,000 property records**, whic
 ## Project Phases
 
 1. **Collecting listing URLs per town**
-2. **Extracting property details from those URLs**
+2. **Consolidate the full list of real estate URLs from all towns**
+3. **Extracting property details from those URLs**
 
 The code supports:
 
@@ -30,7 +31,6 @@ Make sure **Python 3.12.10** is installed.
 > ⚠️ This project is validated under Python 3.12.10. Other versions may result in compatibility issues.
 
 
-
 ## Environment Setup
 
 Use the virtual environment to manage dependencies cleanly:
@@ -50,6 +50,22 @@ See example below:
 
 ![picture 0](images/b05dc94531cc85efdf337f3fe3e1447f0860fffee242f3be29324f4fbceb14ae.png)  
 
+## Testing the Scraper
+You can test the scraper on a single town by editing the `data/immovlan_towns_to_scrape.csv` file to include only one town.
+
+In the `main.py` file, for the `ImmovlanUrlScraper` class, you can control the number of pages to scrape per town using the `max_pages` parameter. 
+Set `max_pages = -1` for no page limit.
+
+```python
+scraper =  ImmovlanUrlScraper(base_url=url, town=town, headless=True, max_pages=2)
+```
+
+Similarly, the `ImmovlanDetailsScraper` class allows you to limit the number of real estate URL  to process by using the `limit` parameter.
+Set `limit` = -1 to disable the limit.
+
+```python
+scraper_detail = ImmovlanDetailsScraper(output_dir="output", headless=True, limit=10)
+```
 
 ## Running the Scraper
 
@@ -164,8 +180,8 @@ You can generate full documentation of the class methods using `pdoc`.
 chmod +x run-doc-generation.sh
 ./run-doc-generation.sh
 ```
+![picture 3](images/dc72d87241922c26fc13654c7a47db9fb873e0cead74153e2bea296eb475dd71.png)  
 
-![alt text](image-1.png)
 
 ## Conclusion
 
