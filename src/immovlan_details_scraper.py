@@ -115,22 +115,35 @@ class ImmovlanDetailsScraper:
             "epc_score", "epc_total", "epc_valid_until"
         ]
 
+        # Open the output CSV file for writing, using UTF-8 encoding and disabling newline translation
         with open(self.output_file, mode="w", newline="", encoding="utf-8") as f:
+            
+            # Create a CSV writer that writes dictionaries with the specified fieldnames
             writer = csv.DictWriter(f, fieldnames=fieldnames)
+
+            # Write the CSV header (column names)
             writer.writeheader()
 
+            # Loop over each row in the DataFrame, without using the index
             for i, row in enumerate(df.itertuples(index=False), start=1):
                 try:
+                    # Use the Selenium driver to load the URL of the property
                     self.driver.get(row.url)
+                    
+                    # Wait for 2 seconds to allow the page to fully load (basic throttling)
                     time.sleep(2)
+
+                    # Parse the page source using BeautifulSoup
                     soup = BeautifulSoup(self.driver.page_source, "html.parser")
 
+                    # Define a helper function to extract values associated with specific <h4> labels
                     def get_label_value(label):
                         element = soup.find("h4", string=label)
                         if element and element.find_next_sibling("p"):
                             return element.find_next_sibling("p").text.strip()
                         return None
 
+                    # Build a dictionary with the extracted details for each property
                     details = {
                         "town": getattr(row, "town", ""),
                         "page": getattr(row, "page", ""),
@@ -161,6 +174,7 @@ class ImmovlanDetailsScraper:
                         "epc_valid_until": get_label_value("Validity date EPC/PEB")
                     }
 
+                    # Try to extract the postal code and city name from the address string
                     address_parts = details["address"].split() if details["address"] else []
                     if len(address_parts) >= 2:
                         try:
@@ -169,11 +183,17 @@ class ImmovlanDetailsScraper:
                         except StopIteration:
                             pass
 
+                    # Write the extracted data as a new row in the CSV
                     writer.writerow(details)
+
+                     # Log successful extraction for this property
                     logger.info("✅ [%d/%d] Extracted: %s", i, len(df), row.url)
+                    
                 except Exception as e:
+                    # Log any errors encountered while processing this property
                     logger.warning("⚠️ Error extracting from %s: %s", row.url, e)
 
+        # After finishing the loop, log that all data has been saved successfully
         logger.info("💾 Saved detailed data to: %s", self.output_file)
 
     def close(self):
