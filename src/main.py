@@ -65,7 +65,7 @@ def main():
       df["town"] = df["town"].astype(str).str.strip()  # Supprime les espaces début/fin
       df["town"] = df["town"].str.replace(" ", "", regex=False)  # Supprime les espaces au milieu 
       towns = df["town"].dropna().unique().tolist()
-      logger.info("🌆 %d tows to scrape: %s", len(towns), towns)
+      logger.info("🌆 %d tow(s) to scrape: %s", len(towns), towns)
 
  
       for town in towns:
@@ -105,7 +105,7 @@ def main():
         scraper_detail.extract_all()
         scraper_detail.close()
 
-        logger.info("✅ Details extracted from consolidated URLs.")
+        logger.info("👏 Real estate details extracted from consolidated URLs.")
 
 
 if __name__ == "__main__":

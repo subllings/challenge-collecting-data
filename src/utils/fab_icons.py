@@ -212,5 +212,21 @@ Emoji	  Meaning
 🗳️	     Input received, user decision
 📓	    Notebook, dev log, journal
 
+--------------------------------------------------
+Hand Emoji	Meaning
+--------------------------------------------------
+✋	Raised hand (stop, attention, neutral action)
+🤚	Back of hand (hello, wait, neutral)
+🖐️	Spread hand (presentation, explanation)
+🖖	Vulcan salute (geeky, fun, originality)
+👉	Pointing right (highlight, next, forward)
+👈	Pointing left (back, previous, navigation)
+👆	Pointing up (focus, note, important info)
+👇	Pointing down (next step, more info below)
+🤝	Handshake (agreement, partnership)
+🙌	Raising hands (celebration, success)
+👏	Clapping hands (applause, encouragement)
+👍	Thumbs up (OK, good, approved)
+👎	Thumbs down (disapproval, failure)
 
 """

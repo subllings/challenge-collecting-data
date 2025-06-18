@@ -1,21 +1,17 @@
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from seleniumwire import webdriver
-from bs4 import BeautifulSoup
-from datetime import datetime
-from urllib.parse import urljoin
-import glob
-import csv 
-
 import pandas as pd
 import time
 import random
 import os
 import logging
 import json
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+from seleniumwire import webdriver
+from datetime import datetime
+
 
 logger = logging.getLogger(__name__)
 
@@ -234,7 +230,7 @@ class ImmovlanUrlScraper:
         except TimeoutException:
             logger.info("ℹ️ No cookie banner found.")
         except Exception as e:
-            logger.warning(f"⚠️ Unexpected error while handling cookie banner: {e}")
+            logger.warning("⚠️ Unexpected error while handling cookie banner: %s", e)
 
     def scrape(self):
         """
@@ -245,7 +241,7 @@ class ImmovlanUrlScraper:
         Returns:
             None
         """
-        logger.info(f"🔎 Scraping town: {self.town}")
+        logger.info("🔎 Scraping town: %s", self.town)
         self.get_all_listing_urls(town_name=self.town)
 
     def get_all_listing_urls(self, town_name: str):
@@ -290,7 +286,7 @@ class ImmovlanUrlScraper:
             while self.max_pages == -1 or page <= self.max_pages:
                 full_url = f"{self.base_url}&page={page}"
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                logger.info(f"📄 Visiting page {page}: {full_url}")
+                logger.info("👉📄 Visiting page %d: %s", page, full_url)
                 f.write(f"\n[{timestamp}] === Page {page} ===\n>>> Visiting: {full_url}\n")
 
                 # Check that the session is active (prevents InvalidSessionIdException)
@@ -403,7 +399,7 @@ class ImmovlanUrlScraper:
                 else:
                     empty_pages_in_a_row = 0
 
-                logger.info(f"[INFO] Found {len(page_links)} property links on page {page}")
+                logger.info("[INFO] Found %d property links on page %d", len(page_links), page)
                 f.write(f"[{timestamp}] [INFO] Found {len(page_links)} property links on page {page}\n")
 
                 page_data = []
@@ -413,13 +409,13 @@ class ImmovlanUrlScraper:
                     if entry not in self.property_urls:
                         self.property_urls.append(entry)
                     page_data.append(entry)
-                    logger.info(f"🟢 [{i:02d}] URL found: {url}")
+                    logger.info("🟢 [%02d] URL found: %s", i, url)
                     f.write(f"[{timestamp}] 🟢 [{i:02d}] {url}\n")
 
                 partial_csv_path = os.path.join(full_output_dir, f"partial_urls_page_{page}_{filename_base}.csv")
-                #pd.DataFrame(page_data, columns=["page", "url"]).to_csv(partial_csv_path, index=False)
+                
                 pd.DataFrame(page_data, columns=["town", "page", "url"]).to_csv(partial_csv_path, index=False)
-                logger.info(f"[INFO] ✅ Partial CSV saved: {partial_csv_path}")
+                logger.info("[INFO] ✅ Partial CSV saved: %s", partial_csv_path)
               
                 page += 1
 
@@ -427,12 +423,12 @@ class ImmovlanUrlScraper:
         self.to_csv(filepath=final_csv)
 
         summary_path = os.path.join(full_output_dir, f"stats_{filename_base}.txt")
-        with open(summary_path, "w") as stats:
+        with open(summary_path, "w", encoding="utf-8") as stats:
             stats.write(f"Run ID         : {self.run_id}\n")
             stats.write(f"Pages visited  : {page}\n")
             stats.write(f"Total listings : {len(self.property_urls)}\n")
             stats.write(f"Timestamp      : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-        logger.info(f"📊 Stats saved to {summary_path}")
+        logger.info("📊 Stats saved to %s", summary_path)
 
     def close(self):
         """
@@ -444,16 +440,28 @@ class ImmovlanUrlScraper:
         try:
             self.driver.quit()
         except Exception as e:
-            logger.warning(f"⚠️ Error while closing driver: {e}")        
+            logger.warning("⚠️ Error while closing driver: %s", e)        
 
     def to_csv(self, filepath: str):
+        """
+        Saves the collected property URLs to a CSV file at the specified filepath.
+
+        Parameters:
+            filepath (str): The path where the CSV file will be saved.
+
+        Behavior:
+            - If there are no property URLs to save, logs a warning and returns.
+            - Ensures the target directory exists.
+            - Saves the property URLs as rows in a CSV file without the index.
+            - Logs an info message with the number of rows saved and the file location.
+        """
         if not self.property_urls:
             logger.warning("[WARNING] No URLs to save.")
             return
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         df = pd.DataFrame(self.property_urls)
         df.to_csv(filepath, index=False)
-        logger.info(f"💾 CSV saved with {len(df)} rows: {filepath}")
+        logger.info("💾 CSV saved with %d rows: %s", len(df), filepath)
 
 
     @staticmethod
@@ -480,12 +488,12 @@ class ImmovlanUrlScraper:
             for file in files:
                 if file.startswith("urls_") and file.endswith(".csv"):
                     file_path = os.path.join(root, file)
-                    logger.info(f"📥 Reading file: {file_path}")
+                    logger.info("📥 Reading file: %s", file_path)
                     try:
                         df = pd.read_csv(file_path)
                         all_data.append(df)
                     except Exception as e:
-                        logger.warning(f"⚠️ Could not read {file_path}: {e}")
+                        logger.warning("⚠️ Could not read %s: %s", file_path, e)
 
         if not all_data:
             logger.warning("❌ No data files found to consolidate.")
@@ -497,15 +505,15 @@ class ImmovlanUrlScraper:
         consolidated_csv_name = f"{consolidated_dir_name}_{timestamp}.csv"
         consolidated_csv_path = os.path.join(final_dir, consolidated_csv_name)
         combined_df.to_csv(consolidated_csv_path, index=False)
-        logger.info(f"✅ Consolidated CSV written: {consolidated_csv_path}")
+        logger.info("✅ Consolidated CSV written: %s", consolidated_csv_path)
 
         stats_path = os.path.join(final_dir, f"stats_consolidation_{timestamp}.txt")
-        with open(stats_path, "w") as f:
+        with open(stats_path, "w", encoding="utf-8") as f:
             f.write(f"Files combined  : {len(all_data)}\n")
             f.write(f"Unique listings : {len(combined_df)}\n")
             f.write(f"Timestamp       : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-        logger.info(f"📊 Consolidation stats written: {stats_path}")
+        logger.info("📊 Consolidation stats written: %s", stats_path)
         logger.info("✅ All towns consolidated in one CSV.")
 
 
