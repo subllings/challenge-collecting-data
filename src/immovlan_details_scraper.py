@@ -31,6 +31,7 @@ class ImmovlanDetailsScraper:
         close():
             Closes the Selenium WebDriver instance.
     """
+
     def __init__(self, output_dir: str = "output", headless: bool = True, limit: int = -1):
         """
         Initializes the scraper with specified output directory, headless mode, and result limit.
@@ -48,12 +49,24 @@ class ImmovlanDetailsScraper:
             driver (WebDriver): Selenium WebDriver instance.
             output_file (str): Path to the output file.
         """
+
         self.output_dir = output_dir
+        """Directory where output files will be saved."""
+        
         self.limit = limit
+        """Maximum number of items to process. Use -1 for no limit."""
+
         self.headless = headless
+        """Flag to indicate if the browser should run in headless mode."""
+        
         self.csv_file = self._get_latest_consolidated_csv()
+        """ Path to the latest consolidated CSV file containing property URLs."""
+
         self.driver = self._init_driver()
+        """Selenium WebDriver instance for navigating property detail pages."""
+
         self.output_file = self._generate_output_file_path()
+        """Path to the output CSV file for storing extracted property details."""
 
     def _init_driver(self):
         """
@@ -119,6 +132,7 @@ class ImmovlanDetailsScraper:
         and iterates through each property URL. For each URL, it navigates to the page using Selenium, parses the HTML
         with BeautifulSoup, and extracts various property details such as price, address, number of bedrooms, surface areas,
         and energy performance data. The extracted data is written to a new CSV file specified by `self.output_file`.
+        
         Fields extracted include:
             - town, page, url, property_type, price, address, postal_code, city
             - bedrooms, bedroom1_surface, bedroom2_surface, bathrooms, toilets
@@ -126,6 +140,7 @@ class ImmovlanDetailsScraper:
             - condition, kitchen_equipment, cellar, glazing_type, elevator, entry_phone
             - epc_score, epc_total, epc_valid_until
         Logs progress and any extraction errors encountered.
+        
         Raises:
             Any exceptions encountered during extraction are caught and logged as warnings.
         """
