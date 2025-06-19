@@ -71,7 +71,12 @@ npm install -g pyright
 pip install --upgrade flake8 flake8-docstrings pydocstyle
 
 # === Register venv in Jupyter ===
-python -m playwright install
+python -m ipykernel install --user --name=venv --display-name "Python (.venv)"
+print_blue "Writing .vscode/settings.json to use .venv Python interpreter..."
+mkdir -p .vscode
+echo '{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe"
+}' > .vscode/settings.json
 
 # === Done ===
 print_green "Setup complete. Your virtual environment is ready!"
